@@ -1,10 +1,8 @@
 DELIMITER //
 
-DROP PROCEDURE IF EXISTS CobroAutomatico; -- Asegúrate de eliminar la versión anterior
-
 CREATE PROCEDURE CobroAutomatico(
     IN fecha_actual DATE,
-    IN tasa_interes DECIMAL(4, 2),
+    IN tasa_interes DECIMAL(5,2),
     IN dias_anio_comercial INT
 )
 BEGIN
@@ -77,12 +75,72 @@ BEGIN
     -- Cerrar el cursor
     CLOSE loan_cursor;
 
-    -- Confirmar la transacción
+    -- Crear tabla temporal para almacenar los resultados
+    CREATE TEMPORARY TABLE Resultados (
+        Cliente VARCHAR(255),
+        Plazo INT,
+        Monto DECIMAL(10, 2),
+        Interes DECIMAL(10, 2),
+        Iva DECIMAL(10, 2),
+        Pago DECIMAL(10, 2)
+    );
+
+    -- Insertar los resultados de los pagos en la tabla temporal
+    INSERT INTO Resultados (Cliente, Plazo, Monto, Interes, Iva, Pago)
+    SELECT ca.Client AS Cliente,
+           DATEDIFF(fecha_actual, ca.FechaCobro) AS Plazo,
+           ca.MontoCobrado AS Monto,
+           ROUND((ca.MontoCobrado * DATEDIFF(fecha_actual, ca.FechaCobro) * tasa_interes) / dias_anio_comercial, 2) AS Interes,
+           ROUND((ROUND((ca.MontoCobrado * DATEDIFF(fecha_actual, ca.FechaCobro) * tasa_interes) / dias_anio_comercial, 2) * (s.IVA / 100)), 2) AS Iva,
+           (ca.MontoCobrado + ROUND((ca.MontoCobrado * DATEDIFF(fecha_actual, ca.FechaCobro) * tasa_interes) / dias_anio_comercial, 2) +
+           ROUND((ROUND((ca.MontoCobrado * DATEDIFF(fecha_actual, ca.FechaCobro) * tasa_interes) / dias_anio_comercial, 2) * (s.IVA / 100)), 2)) AS Pago
+    FROM CobrosAuditoria ca
+    JOIN loans l ON ca.LoanId = l.Id
+    JOIN Sucursales s ON l.IdSucursal = s.ID
+    WHERE ca.FechaCobro = fecha_actual;
+
+    -- Seleccionar los resultados finales
+    SELECT * FROM Resultados;
+
+    -- Cerrar la transacción
     COMMIT;
 
 END //
 
 DELIMITER ;
 
+
+
+
+SHOW PROCEDURE STATUS WHERE Name = 'CobroAutomatico';
+SHOW TABLES;
+DROP PROCEDURE IF EXISTS CobroAutomatico;
+DROP TABLE IF EXISTS Resultados;
+DROP TABLE IF EXISTS CobrosAuditoria;
+commit;
+
 CALL CobroAutomatico('2021-02-20', 7.50, 360);
 
+
+CREATE TABLE CobrosAuditoria (
+    Id INT AUTO_INCREMENT PRIMARY KEY,
+    Client VARCHAR(255) NOT NULL,
+    LoanId INT NOT NULL,
+    MontoCobrado DECIMAL(10, 2) NOT NULL,
+    FechaCobro DATE NOT NULL
+);
+
+CREATE TEMPORARY TABLE Resultados (
+    Cliente VARCHAR(255),
+    Plazo INT,
+    Monto DECIMAL(10, 2),
+    Interes DECIMAL(10, 2),
+    Iva DECIMAL(10, 2),
+    Pago DECIMAL(10, 2)
+);
+
+
+
+-- Para ver las filas afectadas
+SELECT * FROM CobrosAuditoria;
+SELECT * FROM Resultados;

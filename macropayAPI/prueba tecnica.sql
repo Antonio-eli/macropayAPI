@@ -1,3 +1,5 @@
+DROP TABLE loans;
+
 CREATE DATABASE macropayDb;
 USE macropayDb;
 CREATE TABLE loans (
@@ -43,14 +45,6 @@ INSERT INTO Accounts (Client, Amount, Status) VALUES
 ('cee008ca-c715-456b-96c6-74ff9bd22dd3', 235.28, 'Activa');
 
 commit;
-
-select * from loans;
-select * from Sucursales;
-select * from Accounts;
-
-SELECT * FROM loans WHERE Status = 'Pendiente';
-SELECT * FROM Accounts WHERE Status = 'Activa';
-
 CREATE TABLE roles (
     id INT AUTO_INCREMENT PRIMARY KEY,
     name VARCHAR(50) NOT NULL UNIQUE
@@ -75,7 +69,41 @@ CREATE TABLE CobrosAuditoria (
 );
 
 
+
 SELECT * FROM loans;
+SELECT * FROM sucursales;
+SELECT * FROM accounts;
+SELECT * FROM CobrosAuditoria;
+
+SELECT * FROM loans WHERE Status = 'Pendiente';
+
+
+SELECT * FROM loans where Client='cee008ca-c715-456b-96c6-74ff9bd22dd3';
+
+
+SELECT * FROM accounts where Client in ('911ac37c-5990-4bf8-8cf0-b51f21c8ecbe','cee008ca-c715-456b-96c6-74ff9bd22dd3');
+
+/*Obtener Cuentas Activas*/
+SELECT * FROM Accounts WHERE Status = 'Activa';
+SELECT Client, Amount FROM Accounts WHERE Status = 'Activa';
+
+/*Obtener Préstamos Pendientes Ordenado*/
+SELECT * FROM loans where Status='Pendiente' order by Date_Loan desc;
+
+/*Calcular Plazo, Interés, IVA, Pago*/
+/*Calcular Plazo, Interés, IVA, Pago*/
+
+
+
+
+
+
+
+
+
+
+
+
 SELECT * FROM CobrosAuditoria;
 
 SHOW TABLES;

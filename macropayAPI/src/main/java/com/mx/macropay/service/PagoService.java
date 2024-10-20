@@ -13,42 +13,31 @@ import com.mx.macropay.dto.CobroRequest;
 @Service
 public class PagoService {
 
-	@Autowired
-	private JdbcTemplate jdbcTemplate;
+    @Autowired
+    private JdbcTemplate jdbcTemplate;
 
-	public Map<String, Object> ejecutarCobro(CobroRequest cobroRequest) {
-		String sql = "{CALL CobroAutomatico(?, ?, ?)}";
+    public Map<String, Object> ejecutarCobro(CobroRequest cobroRequest) {
+        // Llama al procedimiento almacenado
+        String sqlCall = "{CALL CobroAutomatico(?, ?, ?)}";
+        jdbcTemplate.update(sqlCall, cobroRequest.getFechaActual(), cobroRequest.getTasaInteres(), cobroRequest.getDiasAnioComercial());
 
-		// Ejecutar el procedimiento
-		jdbcTemplate.update(sql, cobroRequest.getFechaActual(), cobroRequest.getTasaInteres(),
-				cobroRequest.getDiasAnioComercial());
+        // Recuperar los registros de resultados
+        List<Map<String, Object>> resultados = jdbcTemplate.queryForList(
+            "SELECT * FROM Resultados"
+        );
 
-		// Consulta para obtener los pagos y cuentas después de ejecutar el cobro
-		String pagosSql = "SELECT l.Client, DATEDIFF(CURRENT_DATE, l.Date_Loan) AS Plazo, l.Amount AS Monto, " +
-                "ROUND((l.Amount * DATEDIFF(CURRENT_DATE, l.Date_Loan) * ?) / ?, 2) AS Interes, " +
-                "ROUND((ROUND((l.Amount * DATEDIFF(CURRENT_DATE, l.Date_Loan) * ?) / ?, 2) * (s.IVA / 100)), 2) AS Iva, " +
-                "(l.Amount + ROUND((l.Amount * DATEDIFF(CURRENT_DATE, l.Date_Loan) * ?) / ?, 2) + " +
-                "ROUND((ROUND((l.Amount * DATEDIFF(CURRENT_DATE, l.Date_Loan) * ?) / ?, 2) * (s.IVA / 100)), 2)) AS Pago " +
-                "FROM loans l " +
-                "JOIN Accounts a ON l.Client = a.Client " +
-                "JOIN Sucursales s ON l.IdSucursal = s.ID " +
-                "WHERE l.Status = 'Pagado' AND a.Status = 'Activa'";
+        // Recuperar las cuentas activas
+        List<Map<String, Object>> cuentas = jdbcTemplate.queryForList(
+            "SELECT a.Client AS Cliente, a.Amount AS Monto " +
+            "FROM Accounts a " +
+            "WHERE a.Status = 'Activa'"
+        );
 
+        // Crear la respuesta
+        Map<String, Object> response = new HashMap<>();
+        response.put("Pagos", resultados);
+        response.put("Cuentas", cuentas);
 
-		// Obtener los pagos
-		List<Map<String, Object>> pagos = jdbcTemplate.queryForList(pagosSql, cobroRequest.getFechaActual(),
-				cobroRequest.getFechaActual(), cobroRequest.getTasaInteres(), cobroRequest.getDiasAnioComercial(),
-				cobroRequest.getFechaActual(), cobroRequest.getTasaInteres(), cobroRequest.getDiasAnioComercial(),
-				cobroRequest.getFechaActual(), cobroRequest.getTasaInteres(), cobroRequest.getDiasAnioComercial());
-
-		// Consulta para obtener las cuentas
-		String cuentasSql = "SELECT Client, Amount FROM Accounts WHERE Status = 'Activa'";
-		List<Map<String, Object>> cuentas = jdbcTemplate.queryForList(cuentasSql);
-
-		// Crear la respuesta
-		Map<String, Object> response = new HashMap<>();
-		response.put("Pagos", pagos);
-		response.put("Cuentas", cuentas);
-		return response;
-	}
+        return response;
+    }
 }
